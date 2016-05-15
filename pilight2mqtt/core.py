@@ -6,6 +6,8 @@ import json
 import signal
 import logging
 
+import paho.mqtt.client as mqtt
+
 from pilight2mqtt.discover import discover
 
 __all__ = ['Pilight2MQTT', 'PilightServer']
@@ -101,6 +103,7 @@ class PilightServer(Loggable):
 class Pilight2MQTT(Loggable):
     def __init__(self, server=None):
         self.log.debug('__init__')
+        
         self._server = server
         if not self._server:
             self.log.info('trying to discover servers')
@@ -114,7 +117,24 @@ class Pilight2MQTT(Loggable):
                 assert False
             self.log.info('Found server at %s:%d' % (location, int(port)))
             self._server = PilightServer(location, int(port))
+            
+        def on_connect(client, userdata, flags, rc):
+            return self._on_connect(client, userdata, flags, rc)
+        def on_message(client, userdata, msg):
+            return self._on_message(client, userdata, msg)
+        self._mqtt_client = mqtt.Client()
+        self._mqtt_client.on_connect = on_connect
+        self._mqtt_client.on_message = on_message
 
+    def _on_connect(self, client, userdata, flags, rc):
+        print("Connected with result code "+str(rc))
+        # Subscribing in on_connect() means that if we lose the connection and
+        # reconnect then subscriptions will be renewed.
+        client.subscribe("$SYS/#")
+
+    def _on_message(self, client, userdata, msg):
+        print(msg.topic+" "+str(msg.payload))        
+        
     def run(self):
         self.log.debug('run')
         def stop_server(signum, frame):
@@ -122,6 +142,10 @@ class Pilight2MQTT(Loggable):
             self._server.terminate()
         signal.signal(signal.SIGINT, stop_server)
         
+        self.log.debug('connect MQTT')
+        self._mqtt_client.connect("iot.eclipse.org", 1883, 60)
+        self._mqtt_client.loop_start()
+
         suc = self._server.connect()
         if not suc:
             self.log.warn('Could not connect to server')
@@ -131,3 +155,6 @@ class Pilight2MQTT(Loggable):
         self._server.process_events(cb)
         self._server.disconnect()
     
+        self.log.debug('disconnect MQTT')
+        self._mqtt_client.loop_stop(force=False)
+        self._mqtt_client.disconnect()
