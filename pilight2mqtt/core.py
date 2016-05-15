@@ -35,7 +35,8 @@ class PilightServer(Loggable):
         while not self._should_terminate:
             try:
                 line = self._socket.recv(1024)
-            except:
+            except Exception as ex:
+                self.log.debug(ex)
                 continue
             text += line
             if b"\n\n" in line[-2:]:
@@ -43,16 +44,15 @@ class PilightServer(Loggable):
                 break
         if self._should_terminate:
             return {}
-        return json.loads(str(text))
+        return json.loads(text.decode("utf-8"))
         
     def _send(self, msg_dct): 
         self.log.debug('send')
         msg = bytes(json.dumps(msg_dct)+'\n', 'utf-8')
         self._socket.send(msg)
         response = self._read()
-        if 'status' in response:
-            if reponse['status'] == 'success':
-                return True
+        if response.get('status', '') == 'success':
+            return True
         return False
         
     def _open_socket(self):
@@ -66,7 +66,7 @@ class PilightServer(Loggable):
         self.log.debug('connect')
         self._open_socket()
         suc = self._send({
-            'action': 'identfy',
+            'action': 'identify',
             'options': {
                 'receiver': 1
             }
@@ -84,8 +84,11 @@ class PilightServer(Loggable):
         self.log.debug('process_events')
         while not self._should_terminate:
             response = self._read()
-            for f in iter(text.splitlines()):
-                cb(json.loads(str(f)))
+            #for f in iter(text.splitlines()):
+            #    cb(json.loads(str(f)))
+            if not self._should_terminate:
+                self.log.debug('call callback')
+                cp(response)
                 
     def terminate(self):
         self.log.debug('terminate')
@@ -126,5 +129,5 @@ class Pilight2MQTT(Loggable):
         def cb(x):
             print(x)
         self._server.process_events(cb)
-        self._diconnect()
+        self._server.disconnect()
     
