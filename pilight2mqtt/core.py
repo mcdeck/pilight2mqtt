@@ -101,8 +101,11 @@ class PilightServer(Loggable):
 
         
 class Pilight2MQTT(Loggable):
-    def __init__(self, server=None):
+    def __init__(self, mqtt_host, mqtt_port=1883, mqtt_topic='PILIGHT', server=None):
         self.log.debug('__init__')
+        self._mqtt_host = mqtt_host
+        self._mqtt_port = mqtt_port
+        self._mqtt_topic = mqtt_topic
         
         self._server = server
         if not self._server:
@@ -130,10 +133,11 @@ class Pilight2MQTT(Loggable):
         print("Connected with result code "+str(rc))
         # Subscribing in on_connect() means that if we lose the connection and
         # reconnect then subscriptions will be renewed.
-        client.subscribe("$SYS/#")
+        self.log.info('MQTT Subscribe %s' % self._mqtt_topic)
+        client.subscribe("%s/#" % self._mqtt_topic)
 
     def _on_message(self, client, userdata, msg):
-        print(msg.topic+" "+str(msg.payload))        
+        self.log.debug(msg.topic+" "+str(msg.payload))        
         
     def run(self):
         self.log.debug('run')
@@ -142,8 +146,8 @@ class Pilight2MQTT(Loggable):
             self._server.terminate()
         signal.signal(signal.SIGINT, stop_server)
         
-        self.log.debug('connect MQTT')
-        self._mqtt_client.connect("iot.eclipse.org", 1883, 60)
+        self.log.info('MQTT Connect %s:%d' % (self._mqtt_host, self._mqtt_port))
+        self._mqtt_client.connect(self._mqtt_host, self._mqtt_port, 60)
         self._mqtt_client.loop_start()
 
         suc = self._server.connect()
@@ -158,3 +162,4 @@ class Pilight2MQTT(Loggable):
         self.log.debug('disconnect MQTT')
         self._mqtt_client.loop_stop(force=False)
         self._mqtt_client.disconnect()
+        
