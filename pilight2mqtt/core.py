@@ -26,11 +26,7 @@ class PilightServer(Loggable):
         self._port = port
         self._socket = None
         self._should_terminate = True
-        
-    def __del__(self):
-        self.log.debug('__del__')
-        self.disconnect()
-        
+                
     def _read(self):
         self.log.debug('read')
         text = b"";
@@ -44,18 +40,28 @@ class PilightServer(Loggable):
             if b"\n\n" in line[-2:]:
                 text = text[:-2];
                 break
-        if self._should_terminate:
-            return {}
-        return json.loads(text.decode("utf-8"))
+        return text
         
-    def _send(self, msg_dct): 
-        self.log.debug('send')
-        msg = bytes(json.dumps(msg_dct)+'\n', 'utf-8')
-        self._socket.send(msg)
-        response = self._read()
+    def send_check_success(self, msg_dct): 
+        self.log.debug('_send_check_success')
+        response = self.send_json(msg_dct)
         if response.get('status', '') == 'success':
             return True
         return False
+        
+    def send_json(self, msg_dct):
+        self.log.debug('_send_json')
+        msg = bytes(json.dumps(msg_dct)+'\n', 'utf-8')
+        response = self.send_raw(msg)
+        if self._should_terminate:
+            return {}
+        return json.loads(response.decode("utf-8"))
+        
+    def send_raw(self, msg): 
+        self.log.debug('_send_raw')
+        self._socket.send(msg)
+        response = self._read()
+        return response
         
     def _open_socket(self):
         self.log.debug('open socket')
@@ -65,40 +71,57 @@ class PilightServer(Loggable):
         self._should_terminate = False
         
     def connect(self, cb_recv=None):
-        self.log.debug('connect')
+        self.log.info('connect')
         self._open_socket()
-        suc = self._send({
+        suc = self.send_check_success({
             'action': 'identify',
             'options': {
-                'receiver': 1
-            }
+                'receiver': 1,
+                'core': 0,
+                'config': 1,
+                'forward': 1                
+            },
+            'uuid': '0000-d0-63-00-000000',
+            'media': 'all'
         })
         return suc
 
     def disconnect(self):
-        self.log.debug('disconnect')
+        self.log.info('disconnect')
         self._should_terminate = True
         if self._socket:
             self._socket.close()
             self._socket = None
             
-    def process_events(self, cb):
-        self.log.debug('process_events')
+    def process_events(self, callback):
+        self.log.info('process_events')
         while not self._should_terminate:
             response = self._read()
-            #for f in iter(text.splitlines()):
-            #    cb(json.loads(str(f)))
             if not self._should_terminate:
                 self.log.debug('call callback')
-                cp(response)
+                callback(response)
                 
     def terminate(self):
-        self.log.debug('terminate')
+        self.log.info('terminate')
         self._should_terminate = True
         
-    def send(self, msg):
-        pass
-
+    def hearbeat(self):
+        response = self.send_raw(b'HEART')
+        if response == b'BEAT':
+            return True
+        return False
+        
+    def set_device_state(self, device, state):
+        self.log.info('set_device_state: "%s" to "%s"' % (device, state))
+        msg = {
+            'action': 'control',
+            'code': {
+                'device': device,
+                'state': state
+            }
+        }
+        return self.send_check_success(msg)
+        
         
 class Pilight2MQTT(Loggable):
     def __init__(self, mqtt_host, mqtt_port=1883, mqtt_topic='PILIGHT', server=None):
@@ -109,7 +132,7 @@ class Pilight2MQTT(Loggable):
         
         self._server = server
         if not self._server:
-            self.log.info('trying to discover servers')
+            self.log.debug('trying to discover servers')
             responses = discover("urn:schemas-upnp-org:service:pilight:1")
             assert len(responses) > 0
             locationsrc = re.search('Location:([0-9.]+):([0-9.]+)', str(responses[0]), re.IGNORECASE)
@@ -117,7 +140,8 @@ class Pilight2MQTT(Loggable):
                 location = locationsrc.group(1)
                 port = locationsrc.group(2)  
             else: 
-                assert False
+                self.log.error("Whoops, could not find any servers")
+                sys.exit(1)
             self.log.info('Found server at %s:%d' % (location, int(port)))
             self._server = PilightServer(location, int(port))
             
@@ -130,14 +154,19 @@ class Pilight2MQTT(Loggable):
         self._mqtt_client.on_message = on_message
 
     def _on_connect(self, client, userdata, flags, rc):
-        print("Connected with result code "+str(rc))
+        self.log.debug("Connected with result code "+str(rc))
         # Subscribing in on_connect() means that if we lose the connection and
         # reconnect then subscriptions will be renewed.
         self.log.info('MQTT Subscribe %s' % self._mqtt_topic)
         client.subscribe("%s/#" % self._mqtt_topic)
 
     def _on_message(self, client, userdata, msg):
-        self.log.debug(msg.topic+" "+str(msg.payload))        
+        self.log.debug(msg.topic+" "+str(msg.payload))     
+        m = re.search('%s/(.*?)/state' % self._mqtt_topic, msg.topic)
+        if m:
+            device = m.group(1)
+            state = msg.payload           
+            self._server.set_device_state(device, state.decode('utf-8'))
         
     def run(self):
         self.log.debug('run')
@@ -154,12 +183,13 @@ class Pilight2MQTT(Loggable):
         if not suc:
             self.log.warn('Could not connect to server')
             return
+        assert self._server.hearbeat()
         def cb(x):
-            print(x)
+            self.log.debug(x)
         self._server.process_events(cb)
         self._server.disconnect()
     
-        self.log.debug('disconnect MQTT')
+        self.log.info('disconnect MQTT')
         self._mqtt_client.loop_stop(force=False)
         self._mqtt_client.disconnect()
         
