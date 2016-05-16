@@ -162,11 +162,26 @@ class Pilight2MQTT(Loggable):
 
     def _on_message(self, client, userdata, msg):
         self.log.debug(msg.topic+" "+str(msg.payload))     
-        m = re.search('%s/(.*?)/state' % self._mqtt_topic, msg.topic)
+        m = re.search('%s/set/(.*?)/STATE' % self._mqtt_topic, msg.topic)
         if m:
             device = m.group(1)
             state = msg.payload           
             self._server.set_device_state(device, state.decode('utf-8'))
+        
+    def _handle_event(self, evt):
+        self.log.debug(evt)
+        try:
+            evt_dct = json.loads(evt.decode('utf-8'))
+            if evt_dct.get('origin', '') == 'update':
+                state = evt_dct['values']['state']
+                for device in evt_dct.get('devices', []):
+                    topic = '%s/status/%s/STATE' % (self._mqtt_topic, device)
+                    self.log.info('Update for device "%s" to state "%s" on topic "%s"' % (device, state, topic))
+                    (result, mid) = self._mqtt_client.publish(topic, payload=state, qos=0, retain=False)
+                    assert result == mqtt.MQTT_ERR_SUCCESS, "Failed to send message (%)" % result
+                    self.log.debug('Message send with id %d' % mid)
+        except Exception as ex:
+            self.log.error(ex)
         
     def run(self):
         self.log.debug('run')
@@ -183,9 +198,12 @@ class Pilight2MQTT(Loggable):
         if not suc:
             self.log.warn('Could not connect to server')
             return
+            
         assert self._server.hearbeat()
+        
         def cb(x):
-            self.log.debug(x)
+            self._handle_event(x)
+                
         self._server.process_events(cb)
         self._server.disconnect()
     
