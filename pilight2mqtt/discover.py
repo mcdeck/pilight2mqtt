@@ -38,6 +38,7 @@ def discover(service, timeout=2, retries=1):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack('LL', 0, 10000))
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+        sock.settimeout(timeout)
         sock.sendto(bytes(message.format(st=service), 'UTF-8'), group)
         while True:
             try:

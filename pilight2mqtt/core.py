@@ -1,6 +1,7 @@
 ﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import socket
+import sys
 import re
 import json
 import signal
@@ -12,6 +13,7 @@ from pilight2mqtt.discover import discover
 
 __all__ = ['Pilight2MQTT', 'PilightServer']
 
+DISCOVER_SCHEMA = "urn:schemas-upnp-org:service:pilight:1"
 
 class Loggable(object):
   @property
@@ -19,7 +21,32 @@ class Loggable(object):
     return logging.getLogger(self.__class__.__name__)
     
     
+class ConnectionLostException(Exception): pass
+    
+    
+class PilightAutoDiscover(Loggable):
+    def __call__(self):
+        self.log.debug('trying to discover servers')
+        responses = discover(DISCOVER_SCHEMA)
+        if len(responses) == 0:
+            self.log.error('failed to locate any servers - terminating')
+            sys.exit(1)
+        locationsrc = re.search('Location:([0-9.]+):([0-9.]+)', str(responses[0]), re.IGNORECASE)
+        if locationsrc:
+            location = locationsrc.group(1)
+            port = locationsrc.group(2)  
+        else: 
+            self.log.error("Whoops, could not find any servers")
+            sys.exit(1)
+        self.log.info('Found server at %s:%d' % (location, int(port)))
+        return PilightServer(location, int(port))
+
+    
 class PilightServer(Loggable):
+    @classmethod
+    def discover(self):
+        return PilightAutoDiscover()()
+
     def __init__(self, address, port):
         self.log.debug('__init__(%s, %s)' % (address, port))
         self._address = address
@@ -33,9 +60,10 @@ class PilightServer(Loggable):
         while not self._should_terminate:
             try:
                 line = self._socket.recv(1024)
+            except socket.timeout:
+                continue
             except Exception as ex:
                 self.log.debug(ex)
-                continue
             text += line
             if b"\n\n" in line[-2:]:
                 text = text[:-2];
@@ -72,6 +100,8 @@ class PilightServer(Loggable):
         
     def connect(self, cb_recv=None):
         self.log.info('connect')
+        if cb_recv:
+            self._event_handler = cb_recv
         self._open_socket()
         suc = self.send_check_success({
             'action': 'identify',
@@ -86,6 +116,16 @@ class PilightServer(Loggable):
         })
         return suc
 
+    def reconnect():
+        try:
+            connected = False
+            while not self._should_terminate and not connected:
+                connected = self.connect()  
+            return connected
+        except:
+            pass
+        return False
+        
     def disconnect(self):
         self.log.info('disconnect')
         self._should_terminate = True
@@ -124,26 +164,12 @@ class PilightServer(Loggable):
         
         
 class Pilight2MQTT(Loggable):
-    def __init__(self, mqtt_host, mqtt_port=1883, mqtt_topic='PILIGHT', server=None):
+    def __init__(self, server, mqtt_host, mqtt_port=1883, mqtt_topic='PILIGHT'):
         self.log.debug('__init__')
         self._mqtt_host = mqtt_host
         self._mqtt_port = mqtt_port
         self._mqtt_topic = mqtt_topic
-        
         self._server = server
-        if not self._server:
-            self.log.debug('trying to discover servers')
-            responses = discover("urn:schemas-upnp-org:service:pilight:1")
-            assert len(responses) > 0
-            locationsrc = re.search('Location:([0-9.]+):([0-9.]+)', str(responses[0]), re.IGNORECASE)
-            if locationsrc:
-                location = locationsrc.group(1)
-                port = locationsrc.group(2)  
-            else: 
-                self.log.error("Whoops, could not find any servers")
-                sys.exit(1)
-            self.log.info('Found server at %s:%d' % (location, int(port)))
-            self._server = PilightServer(location, int(port))
             
         def on_connect(client, userdata, flags, rc):
             return self._on_connect(client, userdata, flags, rc)
