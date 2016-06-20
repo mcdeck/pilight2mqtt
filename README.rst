@@ -1,2 +1,4 @@
-# pilight2mqtt
+pilight2mqtt
+============
+
 Proxy messages between pilight and mqtt

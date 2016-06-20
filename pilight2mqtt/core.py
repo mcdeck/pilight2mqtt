@@ -25,7 +25,7 @@ class ConnectionLostException(Exception): pass
     
     
 class PilightAutoDiscover(Loggable):
-    def __call__(self):
+    def discover(self):
         self.log.debug('trying to discover servers')
         responses = discover(DISCOVER_SCHEMA)
         if len(responses) == 0:
@@ -45,7 +45,7 @@ class PilightAutoDiscover(Loggable):
 class PilightServer(Loggable):
     @classmethod
     def discover(self):
-        return PilightAutoDiscover()()
+        return PilightAutoDiscover().discover()
 
     def __init__(self, address, port):
         self.log.debug('__init__(%s, %s)' % (address, port))
@@ -145,7 +145,7 @@ class PilightServer(Loggable):
         self.log.info('terminate')
         self._should_terminate = True
         
-    def hearbeat(self):
+    def heartbeat(self):
         response = self.send_raw(b'HEART')
         if response == b'BEAT':
             return True
@@ -217,15 +217,19 @@ class Pilight2MQTT(Loggable):
         signal.signal(signal.SIGINT, stop_server)
         
         self.log.info('MQTT Connect %s:%d' % (self._mqtt_host, self._mqtt_port))
-        self._mqtt_client.connect(self._mqtt_host, self._mqtt_port, 60)
+        try:
+            self._mqtt_client.connect(self._mqtt_host, self._mqtt_port, 60)
+        except Exception as ex:
+            self.log.error('Failed to connect to MQTT server: %s' % str(ex))
+            return 1
         self._mqtt_client.loop_start()
 
         suc = self._server.connect()
         if not suc:
             self.log.warn('Could not connect to server')
-            return
+            return 1
             
-        assert self._server.hearbeat()
+        assert self._server.heartbeat()
         
         def cb(x):
             self._handle_event(x)
@@ -236,4 +240,6 @@ class Pilight2MQTT(Loggable):
         self.log.info('disconnect MQTT')
         self._mqtt_client.loop_stop(force=False)
         self._mqtt_client.disconnect()
+        
+        return 0
         

@@ -1,0 +1,4 @@
+include README.rst
+include LICENSE
+graft pilight2mqtt
+recursive-exclude * *.py[co]
