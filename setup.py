@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 from setuptools import setup, find_packages
-from pip.req import parse_requirements
 from pilight2mqtt.const import __version__
 
 PACKAGE_NAME = 'pilight2mqtt'
@@ -11,12 +10,9 @@ DOWNLOAD_URL = ('https://github.com/mcdeck/pilight2mqtt/archive'
 
 PACKAGES = find_packages(exclude=['tests', 'tests.*'])
 
-
-REQUIRES = [str(ir.req) for ir in parse_requirements('requirements_all.txt', session=False)]
-#[
-#    'requests>=2,<3',
-#    'paho-mqtt=1.2'
-#]
+REQUIRES = [
+    'paho-mqtt'
+]
 
 setup(
     name=PACKAGE_NAME,
