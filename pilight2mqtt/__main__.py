@@ -7,7 +7,7 @@ import logging
 import argparse
 import textwrap
 
-from pilight2mqtt.core import (PilightServer, 
+from pilight2mqtt.core import (PilightServer,
                                Pilight2MQTT)
 from pilight2mqtt.const import __version__
 
@@ -41,7 +41,7 @@ def get_arguments():
         default=5001,
         type=int,
         help=textwrap.dedent('''\
-            Port of the pilight server. 
+            Port of the pilight server.
             Only used when pilight-server is also specified'''))
     parser.add_argument(
         '--debug',
@@ -50,7 +50,7 @@ def get_arguments():
     parser.add_argument(
         '--verbose',
         action='store_true',
-        help='Start pilight2mqtt in verbose mode')        
+        help='Start pilight2mqtt in verbose mode')
     parser.add_argument(
         '--pid-file',
         metavar='path_to_pid_file',
@@ -66,8 +66,9 @@ def get_arguments():
     if os.name != "posix" or arguments.debug:
         arguments.daemon = False
 
-    return arguments                               
-           
+    return arguments
+
+
 # Borrowed from Home Assistatnt
 def daemonize():
     """Move current process to daemon process."""
@@ -92,7 +93,7 @@ def daemonize():
     os.dup2(infd.fileno(), sys.stdin.fileno())
     os.dup2(outfd.fileno(), sys.stdout.fileno())
     os.dup2(outfd.fileno(), sys.stderr.fileno())
-    
+
 
 def check_pid(pid_file):
     """Check that HA is not already running."""
@@ -125,17 +126,17 @@ def write_pid(pid_file):
         print('Fatal Error: Unable to write pid file {}'.format(pid_file))
         sys.exit(1)
 
-    
+
 def main():
     args = get_arguments()
-    
+
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
     elif args.verbose:
         logging.basicConfig(level=logging.INFO)
     else:
         logging.basicConfig(level=logging.WARNING)
-    
+
     # Daemon functions
     if args.pid_file:
         check_pid(args.pid_file)
@@ -143,20 +144,19 @@ def main():
         daemonize()
     if args.pid_file:
         write_pid(args.pid_file)
-        
+
     if args.pilight_server:
-        server = PilightServer(args.pilight_server, 
+        server = PilightServer(args.pilight_server,
                                args.pilight_port)
     else:
         server = PilightServer.discover()
-        
-    p2m = Pilight2MQTT(server, 
+
+    p2m = Pilight2MQTT(server,
                        args.mqtt_server,
                        mqtt_port=args.mqtt_port,
                        mqtt_topic=args.mqtt_topic)
-    return p2m.run()        
-
+    return p2m.run()
 
 
 if __name__ == "__main__":
-    sys.exit(main())    
+    sys.exit(main())

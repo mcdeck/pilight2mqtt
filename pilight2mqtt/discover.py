@@ -4,23 +4,27 @@
 #
 #    This file is part of pilight.
 #
-#   pilight is free software: you can redistribute it and/or modify it under the
-#    terms of the GNU General Public License as published by the Free Software
-#    Foundation, either version 3 of the License, or (at your option) any later
-#    version.
+#   pilight is free software: you can redistribute
+#    it and/or modify it under the terms of the
+#    GNU General Public License as published by
+#    the Free Software Foundation, either
+#    version 3 of the License, or (at your option)
+#    any later version.
 #
-#   pilight is distributed in the hope that it will be useful, but WITHOUT ANY
-#    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-#    A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#   pilight is distributed in the hope that it
+#    will be useful, but WITHOUT ANY WARRANTY;
+#    without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR
+#    PURPOSE.  See the GNU General Public License
+#    for more details.
 #
 #   You should have received a copy of the GNU General Public License
 #   along with pilight. If not, see    <http://www.gnu.org/licenses/>
 #
 import socket
-import http.client
-import io
 import struct
 import re
+
 
 def discover(service, timeout=2, retries=1):
     group = ("239.255.255.250", 1900)
@@ -28,22 +32,30 @@ def discover(service, timeout=2, retries=1):
         'M-SEARCH * HTTP/1.1',
         'HOST: {0}:{1}'.format(*group),
         'MAN: "ssdp:discover"',
-        'ST: {st}','MX: 3','',''])
+        'ST: {st}', 'MX: 3', '', ''])
 
     responses = {}
     i = 0
     for _ in range(retries):
         i += 1
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, struct.pack('LL', 0, 10000))
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+        sock = socket.socket(socket.AF_INET,
+                             socket.SOCK_DGRAM,
+                             socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET,
+                        socket.SO_RCVTIMEO,
+                        struct.pack('LL', 0, 10000))
+        sock.setsockopt(socket.SOL_SOCKET,
+                        socket.SO_REUSEADDR,
+                        1)
+        sock.setsockopt(socket.IPPROTO_IP,
+                        socket.IP_MULTICAST_TTL,
+                        2)
         sock.settimeout(timeout)
         sock.sendto(bytes(message.format(st=service), 'UTF-8'), group)
         while True:
             try:
                 responses[i] = sock.recv(1024+1)
-                #print(responses[i])
+                # print(responses[i])
                 break
             except socket.timeout:
                 break
@@ -54,10 +66,12 @@ def discover(service, timeout=2, retries=1):
         sock.close()
     return list(responses.values())
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
     responses = discover("urn:schemas-upnp-org:service:pilight:1")
     if len(responses) > 0:
-        locationsrc = re.search('Location:([0-9.]+):([0-9.]+)', str(responses[0]), re.IGNORECASE)
+        locationsrc = re.search('Location:([0-9.]+):([0-9.]+)',
+                                str(responses[0]),
+                                re.IGNORECASE)
         if locationsrc:
             location = locationsrc.group(1)
             port = locationsrc.group(2)
@@ -77,7 +91,7 @@ if __name__ == '__main__':
                 break
         if text == b'{"status":"success"}':
             print("success")
-            text = b""    
+            text = b""
             while True:
                 print("read")
                 line = s.recv(1024)
