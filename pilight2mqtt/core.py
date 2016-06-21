@@ -278,7 +278,7 @@ class Pilight2MQTT(Loggable):
 
         suc = self._server.connect()
         if not suc:
-            self.log.warn('Could not connect to server')
+            self.log.error('Could not connect to server')
             return 1
 
         assert self._server.heartbeat()
