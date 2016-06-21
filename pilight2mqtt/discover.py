@@ -21,12 +21,21 @@
 #   You should have received a copy of the GNU General Public License
 #   along with pilight. If not, see    <http://www.gnu.org/licenses/>
 #
+
+"""
+Support for discovery of pilight servers.
+Code adapted from the original pilight python example.
+"""
+
+from __future__ import print_function
+
 import socket
 import struct
 import re
 
 
 def discover(service, timeout=2, retries=1):
+    """discover pilight servers"""
     group = ("239.255.255.250", 1900)
     message = "\r\n".join([
         'M-SEARCH * HTTP/1.1',
@@ -34,7 +43,7 @@ def discover(service, timeout=2, retries=1):
         'MAN: "ssdp:discover"',
         'ST: {st}', 'MX: 3', '', ''])
 
-    responses = {}
+    responses = {}  # pylint: disable=redefined-outer-name
     i = 0
     for _ in range(retries):
         i += 1
@@ -55,18 +64,19 @@ def discover(service, timeout=2, retries=1):
         while True:
             try:
                 responses[i] = sock.recv(1024+1)
-                # print(responses[i])
                 break
             except socket.timeout:
                 break
-            except Exception as e:
+            except Exception as ex:  # pylint: disable=broad-except
                 print("no pilight ssdp connections found")
-                print(e)
+                print(ex)
                 break
         sock.close()
     return list(responses.values())
 
-if __name__ == '__main__':
+
+def main():
+    """main test program"""
     responses = discover("urn:schemas-upnp-org:service:pilight:1")
     if len(responses) > 0:
         locationsrc = re.search('Location:([0-9.]+):([0-9.]+)',
@@ -76,15 +86,15 @@ if __name__ == '__main__':
             location = locationsrc.group(1)
             port = locationsrc.group(2)
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(5)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5)
         socket.setdefaulttimeout(0)
         print("identfy")
-        s.connect((location, int(port)))
-        s.send(b'{"action":"identify","options":{"receiver":1}}\n')
+        sock.connect((location, int(port)))
+        sock.send(b'{"action":"identify","options":{"receiver":1}}\n')
         text = b""
         while True:
-            line = s.recv(1024)
+            line = sock.recv(1024)
             text += line
             if b"\n\n" in line[-2:]:
                 text = text[:-2]
@@ -94,11 +104,15 @@ if __name__ == '__main__':
             text = b""
             while True:
                 print("read")
-                line = s.recv(1024)
+                line = sock.recv(1024)
                 text += line
                 if "\n\n" in line[-2:]:
                     text = text[:-2]
-                    for f in iter(text.splitlines()):
-                        print(f)
+                    for line in iter(text.splitlines()):
+                        print(line)
                     text = ""
-        s.close()
+        sock.close()
+
+
+if __name__ == '__main__':
+    main()

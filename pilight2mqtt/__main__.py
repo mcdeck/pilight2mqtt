@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Main module of pilight2mqtt
+"""
+
+from __future__ import print_function
+
 import sys
 import os
 import logging
@@ -73,15 +79,15 @@ def get_arguments():
 def daemonize():
     """Move current process to daemon process."""
     # Create first fork
-    pid = os.fork()
+    pid = os.fork()  # pylint: disable=no-member
     if pid > 0:
         sys.exit(0)
 
     # Decouple fork
-    os.setsid()
+    os.setsid()  # pylint: disable=no-member
 
     # Create second fork
-    pid = os.fork()
+    pid = os.fork()  # pylint: disable=no-member
     if pid > 0:
         sys.exit(0)
 
@@ -128,6 +134,7 @@ def write_pid(pid_file):
 
 
 def main():
+    """main entry point"""
     args = get_arguments()
 
     if args.debug:
