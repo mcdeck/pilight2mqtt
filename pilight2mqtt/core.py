@@ -201,23 +201,39 @@ class Pilight2MQTT(Loggable):
             state = msg.payload
             self._server.set_device_state(device, state.decode('utf-8'))
 
+    def _send_mqtt_msg(self, device, topic, payload):
+        self.log.info('Update for device "%s" on topic "%s", new value "%s"' % (device, payload, topic))  # flake8: NOQA
+        (result, mid) = self._mqtt_client.publish(topic,
+                                                  payload=payload,
+                                                  qos=0,
+                                                  retain=False)
+        assert result == mqtt.MQTT_ERR_SUCCESS, "Failed to send message (%)" % result  # flake8: NOQA
+        self.log.debug('Message send with id %d' % mid)
+
     def _handle_event(self, evt):
         self.log.debug(evt)
         try:
             evt_dct = json.loads(evt.decode('utf-8'))
             if evt_dct.get('origin', '') == 'update':
-                state = evt_dct['values']['state']
-                for device in evt_dct.get('devices', []):
-                    topic = '%s/status/%s/STATE' % (self._mqtt_topic, device)
-                    self.log.info('Update for device "%s" to state "%s" on topic "%s"' % (device, state, topic))  # flake8: NOQA
-                    (result, mid) = self._mqtt_client.publish(topic,
-                                                              payload=state,
-                                                              qos=0,
-                                                              retain=False)
-                    assert result == mqtt.MQTT_ERR_SUCCESS, "Failed to send message (%)" % result  # flake8: NOQA
-                    self.log.debug('Message send with id %d' % mid)
+                evt_type = evt_dct.get('type', None)
+                if evt_type == 1: # switch
+                    state = evt_dct['values']['state']
+                    for device in evt_dct.get('devices', []):
+                        topic = '%s/status/%s/STATE' % (self._mqtt_topic, device)
+                        self._send_mqtt_msg(device, topic, state)
+                elif evt_type == 3:
+                    for device in evt_dct.get('devices', []):
+                        topic = lambda reading: '%s/status/%s/%s' % (self._mqtt_topic, device, reading)
+                        self._send_mqtt_msg(device, 
+                                            topic('HUMIDITY'), 
+                                            evt_dct['values']['humidity'])
+                        self._send_mqtt_msg(device, 
+                                            topic('TEMPERATURE'), 
+                                            evt_dct['values']['temperature'])                        
+                else:
+                    raise RuntimeErrror('Unsupported event type %d' % evt_type)
         except Exception as ex:
-            self.log.error(ex)
+            self.log.error('%s: %s', ex.__class__.__name__, ex)
 
     def run(self):
         self.log.debug('run')
