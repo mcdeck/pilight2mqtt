@@ -5,7 +5,7 @@ from pilight2mqtt.const import __version__
 
 PACKAGE_NAME = 'pilight2mqtt'
 HERE = os.path.abspath(os.path.dirname(__file__))
-DOWNLOAD_URL = ('https://github.com/mcdeck/pilight2mqtt/archive'
+DOWNLOAD_URL = ('https://github.com/mcdeck/pilight2mqtt/archive/'
                 '{}.zip'.format(__version__))
 
 PACKAGES = find_packages(exclude=['tests', 'tests.*'])
@@ -18,7 +18,7 @@ setup(
     name=PACKAGE_NAME,
     version=__version__,
     license='MIT License',
-    url='https://www.van-porten.de/projects/pilight2mqtt',
+    url='https://www.van-porten.de/portfolio/pilight2mqtt',
     download_url=DOWNLOAD_URL,
     author='Oliver van Porten',
     author_email='oliver@van-porten.de',
