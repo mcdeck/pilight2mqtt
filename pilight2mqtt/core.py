@@ -236,13 +236,16 @@ class Pilight2MQTT(Loggable):
             self._server.set_device_state(device, state.decode('utf-8'))
 
     def _send_mqtt_msg(self, device, topic, payload):
-        self.log.info('Update for device "%s" on topic "%s", new value "%s"' % (device, payload, topic))  # flake8: NOQA pylint: disable=line-too-long
+        self.log.info('Update for device "%s" on topic "%s", new value "%s"', device, payload, topic)  # flake8: NOQA pylint: disable=line-too-long
         (result, mid) = self._mqtt_client.publish(topic,
                                                   payload=payload,
                                                   qos=0,
                                                   retain=False)
-        assert result == mqtt.MQTT_ERR_SUCCESS, "Failed to send message (%)" % result  # flake8: NOQA
-        self.log.debug('Message send with id %d' % mid)
+        assert result == mqtt.MQTT_ERR_SUCCESS, "Failed to send message (%s)" % str(result)  # flake8: NOQA pylint: disable=line-too-long
+        self.log.debug('Message send with id %d', mid)
+
+    def _mktopic(self, device, reading):
+        return '%s/status/%s/%s' % (self._mqtt_topic, device, reading)
 
     def _handle_event(self, evt):
         """event handling for message from pilight"""
@@ -252,22 +255,21 @@ class Pilight2MQTT(Loggable):
             if evt_dct.get('origin', '') == 'update':
                 evt_type = evt_dct.get('type', None)
                 if evt_type == 1: # switch
-                    state = evt_dct['values']['state']
                     for device in evt_dct.get('devices', []):
-                        topic = '%s/status/%s/STATE' % (self._mqtt_topic, device)
-                        self._send_mqtt_msg(device, topic, state)
+                        self._send_mqtt_msg(device,
+                                            self._mktopic(device, 'STATE'),
+                                            evt_dct['values']['state'])
                 elif evt_type == 3:
                     for device in evt_dct.get('devices', []):
-                        topic = lambda reading: '%s/status/%s/%s' % (self._mqtt_topic, device, reading)
-                        self._send_mqtt_msg(device, 
-                                            topic('HUMIDITY'), 
+                        self._send_mqtt_msg(device,
+                                            self._mktopic(device, 'HUMIDITY'),
                                             evt_dct['values']['humidity'])
-                        self._send_mqtt_msg(device, 
-                                            topic('TEMPERATURE'), 
-                                            evt_dct['values']['temperature'])                        
+                        self._send_mqtt_msg(device,
+                                            self._mktopic(device, 'TEMPERATURE'),
+                                            evt_dct['values']['temperature'])
                 else:
-                    raise RuntimeErrror('Unsupported event type %d' % evt_type)
-        except Exception as ex:
+                    raise RuntimeError('Unsupported event type %d' % evt_type)
+        except Exception as ex:  # pylint: disable=broad-except
             self.log.error('%s: %s', ex.__class__.__name__, ex)
 
     def run(self):

@@ -19,6 +19,6 @@ disable=
   unused-argument,
   global-statement,
   redefined-variable-type
-
+    
 [EXCEPTIONS]
 overgeneral-exceptions=Exception
