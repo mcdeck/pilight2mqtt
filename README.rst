@@ -4,6 +4,11 @@ pilight2mqtt
 Proxy messages between pilight and mqtt
 
 
+Installation
+------------
+pip install pilight2mqtt
+
+
 Tips & Tricks
 -------------
 **Q**: Autodiscovery fails, what is the port to use?
@@ -20,6 +25,7 @@ Build Status
 ------------
 .. image:: https://travis-ci.org/mcdeck/pilight2mqtt.svg?branch=master
     :target: https://travis-ci.org/mcdeck/pilight2mqtt
+
 
 Requirements
 ------------
