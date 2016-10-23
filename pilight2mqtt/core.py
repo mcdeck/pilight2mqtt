@@ -21,7 +21,7 @@ from pilight2mqtt.discover import discover
 __all__ = ['Pilight2MQTT', 'PilightServer']
 
 DISCOVER_SCHEMA = "urn:schemas-upnp-org:service:pilight:1"
-
+DELIM = b'\n\n'
 
 class ConnectionLostException(Exception):
     """Connection lost exception"""
@@ -71,21 +71,26 @@ class PilightServer(Loggable):
         self._should_terminate = True
         self._event_handler = None
 
+    def _readlines(self):
+        buffer = b''
+        while not self._should_terminate:
+            try:
+                data = self._socket.recv(1024)
+                buffer += data
+                self.log.debug('_readlines buffer is %s', buffer)
+                while buffer.find(DELIM) != -1:
+                    line, buffer = buffer.split(DELIM, 1)
+                    self.log.debug('_readlines yield line %s', line)
+                    yield line
+            except socket.timeout:
+                continue
+
     def _read(self):
         """read data from socket"""
         self.log.debug('read')
-        text = b""
-        while not self._should_terminate:
-            try:
-                line = self._socket.recv(1024)
-            except socket.timeout:
-                continue
-            except Exception as ex:  # pylint: disable=broad-except
-                self.log.debug(ex)
-            text += line
-            if b"\n\n" in line[-2:]:
-                text = text[:-2]
-                break
+        lines_generator = self._readlines()
+        text = next(lines_generator)
+        self.log.debug('_read received %s', text)
         return text
 
     def send_check_success(self, msg_dct):
