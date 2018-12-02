@@ -247,7 +247,7 @@ class Pilight2MQTT(Loggable):
             self._server.set_device_state(device, state.decode('utf-8'))
 
     def _send_mqtt_msg(self, device, topic, payload):
-        self.log.info('Update for device "%s" on topic "%s", new value "%s"', device, payload, topic)  # flake8: NOQA pylint: disable=line-too-long
+        self.log.info('Update for device "%s" on topic "%s", new value "%s"', device, topic, payload)  # flake8: NOQA pylint: disable=line-too-long
         (result, mid) = self._mqtt_client.publish(topic,
                                                   payload=payload,
                                                   qos=0,
