@@ -37,6 +37,14 @@ def get_arguments():
         default='PILIGHT',
         help='MQTT topic to use.')
     parser.add_argument(
+        '--mqtt-username',
+        default=None,
+        help='MQTT username for authentication.')
+    parser.add_argument(
+        '--mqtt-password',
+        default=None,
+        help='MQTT password for authentication.')
+    parser.add_argument(
         '--pilight-server',
         default=None,
         help=textwrap.dedent('''\
@@ -161,7 +169,9 @@ def main():
     p2m = Pilight2MQTT(server,
                        args.mqtt_server,
                        mqtt_port=args.mqtt_port,
-                       mqtt_topic=args.mqtt_topic)
+                       mqtt_topic=args.mqtt_topic,
+                       mqtt_username=args.mqtt_username,
+                       mqtt_password=args.mqtt_password)
     return p2m.run()
 
 

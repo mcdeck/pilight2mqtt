@@ -23,6 +23,7 @@ __all__ = ['Pilight2MQTT', 'PilightServer']
 DISCOVER_SCHEMA = "urn:schemas-upnp-org:service:pilight:1"
 DELIM = b'\n\n'
 
+
 class ConnectionLostException(Exception):
     """Connection lost exception"""
     pass
@@ -202,14 +203,15 @@ class PilightServer(Loggable):
 class Pilight2MQTT(Loggable):
     """translate between pilight events and mqtt messages"""
 
-    def __init__(self, server, mqtt_host,
-                 mqtt_port=1883, mqtt_topic='PILIGHT'):
+    def __init__(self, server, mqtt_host, mqtt_username=None, mqtt_password=None, mqtt_port=1883, mqtt_topic='PILIGHT'):
         """initialize"""
         self.log.debug('__init__')
         self._mqtt_host = mqtt_host
         self._mqtt_port = mqtt_port
         self._mqtt_topic = mqtt_topic
         self._server = server
+        self._mqtt_username = mqtt_username
+        self._mqtt_password = mqtt_password
 
         def on_connect(client, userdata, flags, result_code):
             # pylint: disable=missing-docstring
@@ -225,7 +227,11 @@ class Pilight2MQTT(Loggable):
 
     def _on_connect(self, client, userdata, flags, result_code):
         """execute setup of mqtt, i.e. subscribe to a channel"""
-        self.log.debug("Connected with result code "+str(result_code))
+        if result_code == 5:
+            self.log.debug("Connection failed: " + str(result_code) + ": possible authentication failure")
+        else:
+            self.log.debug("Connected with result code " + str(result_code))
+
         # Subscribing in on_connect() means that if we lose the connection and
         # reconnect then subscriptions will be renewed.
         self.log.info('MQTT Subscribe %s', self._mqtt_topic)
@@ -241,7 +247,7 @@ class Pilight2MQTT(Loggable):
             self._server.set_device_state(device, state.decode('utf-8'))
 
     def _send_mqtt_msg(self, device, topic, payload):
-        self.log.info('Update for device "%s" on topic "%s", new value "%s"', device, payload, topic)  # flake8: NOQA pylint: disable=line-too-long
+        self.log.info('Update for device "%s" on topic "%s", new value "%s"', device, topic, payload)  # flake8: NOQA pylint: disable=line-too-long
         (result, mid) = self._mqtt_client.publish(topic,
                                                   payload=payload,
                                                   qos=0,
@@ -289,6 +295,8 @@ class Pilight2MQTT(Loggable):
         self.log.info('MQTT Connect %s:%d',
                       self._mqtt_host, self._mqtt_port)
         try:
+            if self._mqtt_username is not None and self._mqtt_password is not None:
+                self._mqtt_client.username_pw_set(self._mqtt_username, self._mqtt_password)
             self._mqtt_client.connect(self._mqtt_host, self._mqtt_port, 60)
         except Exception as ex:  # pylint: disable=broad-except
             self.log.error('Failed to connect to MQTT server: %s', str(ex))
