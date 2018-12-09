@@ -29,4 +29,4 @@ Build Status
 
 Requirements
 ------------
-* Python 3.4+
+* Python 3.5+
