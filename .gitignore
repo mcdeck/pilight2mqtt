@@ -60,3 +60,9 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# VS Code
+.vscode
+
+# My typical virtualenv
+.virtualenv
