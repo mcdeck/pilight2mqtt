@@ -47,7 +47,7 @@ class PilightServer(Loggable):
 
         log.debug('trying to discover servers')
         responses = discover(DISCOVER_SCHEMA)
-        if len(responses) == 0:
+        if not responses:
             log.error('failed to locate any servers - terminating')
             sys.exit(1)
         locationsrc = re.search('Location:([0-9.]+):([0-9.]+)',
@@ -202,13 +202,13 @@ class PilightServer(Loggable):
 class Pilight2MQTT(Loggable):
     """translate between pilight events and mqtt messages"""
 
-    def __init__(self,
+    def __init__(self,  # pylint: disable=too-many-arguments
                  server,
                  mqtt_host,
                  mqtt_username=None,
                  mqtt_password=None,
                  mqtt_port=1883,
-                 mqtt_topic='PILIGHT'):  # pylint: disable=too-many-arguments, line-too-long
+                 mqtt_topic='PILIGHT'):
         """initialize"""
         self.log.debug('__init__')
         self._mqtt_host = mqtt_host
@@ -233,9 +233,13 @@ class Pilight2MQTT(Loggable):
     def _on_connect(self, client, userdata, flags, result_code):
         """execute setup of mqtt, i.e. subscribe to a channel"""
         if result_code == 5:
-            self.log.debug("Connection failed: %s: possible authentication failure", str(result_code))  # pylint: disable=line-too-long
+            self.log.debug(
+                "Connection failed: %s: possible authentication failure",
+                str(result_code))
         else:
-            self.log.debug("Connected with result code %s", str(result_code))
+            self.log.debug(
+                "Connected with result code %s",
+                str(result_code))
 
         # Subscribing in on_connect() means that if we lose the connection and
         # reconnect then subscriptions will be renewed.
@@ -252,12 +256,15 @@ class Pilight2MQTT(Loggable):
             self._server.set_device_state(device, state.decode('utf-8'))
 
     def _send_mqtt_msg(self, device, topic, payload):
-        self.log.info('Update for device "%s" on topic "%s", new value "%s"', device, topic, payload)  # flake8: NOQA pylint: disable=line-too-long
+        self.log.info(
+            'Update for device "%s" on topic "%s", new value "%s"',
+            device, topic, payload)  # flake8: NOQA
         (result, mid) = self._mqtt_client.publish(topic,
                                                   payload=payload,
                                                   qos=0,
                                                   retain=False)
-        assert result == mqtt.MQTT_ERR_SUCCESS, "Failed to send message (%s)" % str(result)  # flake8: NOQA pylint: disable=line-too-long
+        assert result == mqtt.MQTT_ERR_SUCCESS, (
+            "Failed to send message (%s)" % str(result))
         self.log.debug('Message send with id %d', mid)
 
     def _mktopic(self, device, reading):
@@ -272,17 +279,20 @@ class Pilight2MQTT(Loggable):
                 evt_type = evt_dct.get('type', None)
                 if evt_type == 1:  # switch
                     for device in evt_dct.get('devices', []):
-                        self._send_mqtt_msg(device,
-                                            self._mktopic(device, 'STATE'),
-                                            evt_dct['values']['state'])
+                        self._send_mqtt_msg(
+                            device,
+                            self._mktopic(device, 'STATE'),
+                            evt_dct['values']['state'])
                 elif evt_type == 3:
                     for device in evt_dct.get('devices', []):
-                        self._send_mqtt_msg(device,
-                                            self._mktopic(device, 'HUMIDITY'),
-                                            evt_dct['values']['humidity'])
-                        self._send_mqtt_msg(device,
-                                            self._mktopic(device, 'TEMPERATURE'),
-                                            evt_dct['values']['temperature'])
+                        self._send_mqtt_msg(
+                            device,
+                            self._mktopic(device, 'HUMIDITY'),
+                            evt_dct['values']['humidity'])
+                        self._send_mqtt_msg(
+                            device,
+                            self._mktopic(device, 'TEMPERATURE'),
+                            evt_dct['values']['temperature'])
                 else:
                     raise RuntimeError('Unsupported event type %d' % evt_type)
         except Exception as ex:  # pylint: disable=broad-except
@@ -300,7 +310,8 @@ class Pilight2MQTT(Loggable):
         self.log.info('MQTT Connect %s:%d',
                       self._mqtt_host, self._mqtt_port)
         try:
-            if (self._mqtt_username is not None and self._mqtt_password is not None):  # pylint: disable=line-too-long
+            if (self._mqtt_username is not None
+                    and self._mqtt_password is not None):
                 self._mqtt_client.username_pw_set(
                     self._mqtt_username,
                     self._mqtt_password)

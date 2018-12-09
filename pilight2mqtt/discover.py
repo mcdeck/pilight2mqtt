@@ -78,7 +78,7 @@ def discover(service, timeout=2, retries=1):
 def main():
     """main test program"""
     responses = discover("urn:schemas-upnp-org:service:pilight:1")
-    if len(responses) > 0:
+    if responses:
         locationsrc = re.search('Location:([0-9.]+):([0-9.]+)',
                                 str(responses[0]),
                                 re.IGNORECASE)
