@@ -26,10 +26,9 @@ DELIM = b'\n\n'
 
 class ConnectionLostException(Exception):
     """Connection lost exception"""
-    pass
 
 
-class Loggable(object):  # pylint: disable=too-few-public-methods
+class Loggable:  # pylint: disable=too-few-public-methods
     """base class for objects that need logging"""
 
     @property
@@ -203,7 +202,13 @@ class PilightServer(Loggable):
 class Pilight2MQTT(Loggable):
     """translate between pilight events and mqtt messages"""
 
-    def __init__(self, server, mqtt_host, mqtt_username=None, mqtt_password=None, mqtt_port=1883, mqtt_topic='PILIGHT'):
+    def __init__(self,
+                 server,
+                 mqtt_host,
+                 mqtt_username=None,
+                 mqtt_password=None,
+                 mqtt_port=1883,
+                 mqtt_topic='PILIGHT'):  # pylint: disable=too-many-arguments, line-too-long
         """initialize"""
         self.log.debug('__init__')
         self._mqtt_host = mqtt_host
@@ -228,9 +233,9 @@ class Pilight2MQTT(Loggable):
     def _on_connect(self, client, userdata, flags, result_code):
         """execute setup of mqtt, i.e. subscribe to a channel"""
         if result_code == 5:
-            self.log.debug("Connection failed: " + str(result_code) + ": possible authentication failure")
+            self.log.debug("Connection failed: %s: possible authentication failure", str(result_code))  # pylint: disable=line-too-long
         else:
-            self.log.debug("Connected with result code " + str(result_code))
+            self.log.debug("Connected with result code %s", str(result_code))
 
         # Subscribing in on_connect() means that if we lose the connection and
         # reconnect then subscriptions will be renewed.
@@ -239,7 +244,7 @@ class Pilight2MQTT(Loggable):
 
     def _on_message(self, client, userdata, msg):
         """process messages received from MQTT"""
-        self.log.debug(msg.topic+" "+str(msg.payload))
+        self.log.debug("%s %s", msg.topic, str(msg.payload))
         match = re.search('%s/set/(.*?)/STATE' % self._mqtt_topic, msg.topic)
         if match:
             device = match.group(1)
@@ -265,7 +270,7 @@ class Pilight2MQTT(Loggable):
             evt_dct = json.loads(evt.decode('utf-8'))
             if evt_dct.get('origin', '') == 'update':
                 evt_type = evt_dct.get('type', None)
-                if evt_type == 1: # switch
+                if evt_type == 1:  # switch
                     for device in evt_dct.get('devices', []):
                         self._send_mqtt_msg(device,
                                             self._mktopic(device, 'STATE'),
@@ -295,8 +300,10 @@ class Pilight2MQTT(Loggable):
         self.log.info('MQTT Connect %s:%d',
                       self._mqtt_host, self._mqtt_port)
         try:
-            if self._mqtt_username is not None and self._mqtt_password is not None:
-                self._mqtt_client.username_pw_set(self._mqtt_username, self._mqtt_password)
+            if (self._mqtt_username is not None and self._mqtt_password is not None):  # pylint: disable=line-too-long
+                self._mqtt_client.username_pw_set(
+                    self._mqtt_username,
+                    self._mqtt_password)
             self._mqtt_client.connect(self._mqtt_host, self._mqtt_port, 60)
         except Exception as ex:  # pylint: disable=broad-except
             self.log.error('Failed to connect to MQTT server: %s', str(ex))
