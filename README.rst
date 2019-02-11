@@ -16,7 +16,7 @@ Tips & Tricks
 **A**: You can specify the port pilight listens on in the pilight configuration 
 under settings, port. https://manual.pilight.org/en/configuration-settings#pf2
 
-Remember to first stop pilgith and only modify the settings afterwards. At least
+Remember to first stop pilight and only modify the settings afterwards. At least
 for me pilight will overwrite the configuration with its current values when shutting
 down.
 
